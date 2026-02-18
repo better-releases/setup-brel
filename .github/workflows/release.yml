@@ -1,0 +1,56 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ github.ref_name }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Validate release tag
+        run: |
+          set -euo pipefail
+          if ! [[ "${VERSION}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Tag '${VERSION}' is not a stable semver tag (expected vX.Y.Z)." >&2
+            exit 1
+          fi
+
+      - name: Update moving major tag
+        run: |
+          set -euo pipefail
+          major="${VERSION%%.*}"
+          git fetch --tags origin
+          release_sha="$(git rev-list -n1 "${VERSION}")"
+          if [ -z "${release_sha}" ]; then
+            echo "Unable to resolve commit for tag ${VERSION}." >&2
+            exit 1
+          fi
+          git tag -f "${major}" "${release_sha}"
+          git push origin "refs/tags/${major}" --force
+          echo "Updated ${major} -> ${release_sha}"
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if gh release view "${VERSION}" >/dev/null 2>&1; then
+            echo "Release ${VERSION} already exists. Skipping creation."
+            exit 0
+          fi
+          gh release create "${VERSION}" \
+            --verify-tag \
+            --generate-notes \
+            --title "${VERSION}"

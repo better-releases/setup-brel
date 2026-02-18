@@ -1,0 +1,52 @@
+name: Setup brel
+description: Install brel from GitHub Releases and add it to PATH.
+
+inputs:
+  version:
+    description: "Release tag to install (for example: latest, v1.2.3, or 1.2.3)."
+    required: false
+    default: latest
+  release-repo:
+    description: GitHub repository containing brel releases in owner/repo format.
+    required: false
+    default: better-releases/brel
+  target:
+    description: Target triple to install. Use auto to detect from the runner.
+    required: false
+    default: auto
+  install-dir:
+    description: Directory to copy the brel binary into. Defaults to RUNNER_TEMP.
+    required: false
+    default: ""
+  github-token:
+    description: Optional token for GitHub API requests (helps with rate limits).
+    required: false
+    default: ""
+
+outputs:
+  path:
+    description: Directory added to PATH that contains brel.
+    value: ${{ steps.install.outputs.path }}
+  version:
+    description: Installed release tag.
+    value: ${{ steps.install.outputs.version }}
+  target:
+    description: Installed target triple.
+    value: ${{ steps.install.outputs.target }}
+  binary:
+    description: Full path to the installed brel binary.
+    value: ${{ steps.install.outputs.binary }}
+
+runs:
+  using: composite
+  steps:
+    - name: Install brel
+      id: install
+      shell: bash
+      env:
+        BREL_VERSION: ${{ inputs.version }}
+        BREL_RELEASE_REPO: ${{ inputs['release-repo'] }}
+        BREL_TARGET: ${{ inputs.target }}
+        BREL_INSTALL_DIR: ${{ inputs['install-dir'] }}
+        BREL_GITHUB_TOKEN: ${{ inputs['github-token'] }}
+      run: "${{ github.action_path }}/scripts/install-brel.sh"
